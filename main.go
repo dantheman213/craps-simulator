@@ -12,8 +12,8 @@ func main() {
 	sim := NewCrapsSim(200, 100)
 	sim.SetBettingStrategy(BettingStrategyPassLine, 15)
 	sim.SetBettingStrategy(BettingStrategyOdds, 15)
-	sim.SetBettingStrategy(BettingStrategyPoint6, 6)
-	sim.SetBettingStrategy(BettingStrategyPoint8, 6)
+	sim.SetBettingStrategy(BettingStrategyPlaceBet6, 6)
+	sim.SetBettingStrategy(BettingStrategyPlaceBet8, 6)
 	sim.Start()
 }
 
@@ -31,15 +31,16 @@ type Craps struct {
 	Die2              int
 	PointValue        int
 	BettingStrategies *[]BettingStrategy
+	placeBetHistory   *[]int
 }
 
 const (
-	BettingStrategyPoint4       = 4
-	BettingStrategyPoint5       = 5
-	BettingStrategyPoint6       = 6
-	BettingStrategyPoint8       = 8
-	BettingStrategyPoint9       = 9
-	BettingStrategyPoint10      = 10
+	BettingStrategyPlaceBet4    = 4
+	BettingStrategyPlaceBet5    = 5
+	BettingStrategyPlaceBet6    = 6
+	BettingStrategyPlaceBet8    = 8
+	BettingStrategyPlaceBet9    = 9
+	BettingStrategyPlaceBet10   = 10
 	BettingStrategyFieldBet     = 20
 	BettingStrategyPassLine     = 21
 	BettingStrategyDontPassLine = 22
@@ -47,8 +48,9 @@ const (
 )
 
 type BettingStrategy struct {
-	StrategyType int
-	Bet          float64
+	StrategyType        int
+	Bet                 float64
+	TakeDownBetAfterWin bool
 }
 
 func NewCrapsSim(startBalance float64, maxIterations int) *Craps {
@@ -87,6 +89,7 @@ func (c *Craps) Start() {
 	c.round = 1
 	c.iteration = 1
 
+	fmt.Printf("Initial bankroll is set to $%f\n", c.Bankroll)
 	for c.Bankroll > 0 && c.iteration <= c.MaxIteration {
 		c.rollDice()
 		fmt.Printf("[Round %d][Iteration %d] Dice rolled %d\n", c.round, c.iteration, c.getDiceValue())
@@ -110,21 +113,64 @@ func (c *Craps) Start() {
 			if c.getDiceValue() == 7 {
 				// seven-out (lose)
 				fmt.Printf("[Round %d][Iteration %d] Rolled seven-out (loss). End of round.\n", c.round, c.iteration)
+
+				c.calculateLosses()
+
 				c.isPuckOn = false
 				c.round += 1
-			} else if c.getDiceValue() == c.PointValue {
+				c.placeBetHistory = &[]int{}
+			}
+
+			var currentBetStrategy *BettingStrategy = nil
+
+			currentBetStrategy = c.isBettingStrategyExists(BettingStrategyPlaceBet4)
+			if c.getDiceValue() == 4 && currentBetStrategy != nil {
+				payoutMultiplier := currentBetStrategy.Bet / 5
+				payout := (payoutMultiplier * 4) + currentBetStrategy.Bet
+				c.Bankroll += payout
+				fmt.Printf("[Round %d][Iteration %d] Won on point 4. Payout is %f. Bankroll increased to $%f.\n", c.round, c.iteration, payout, c.Bankroll)
+
+				if currentBetStrategy.TakeDownBetAfterWin {
+					c.Bankroll += currentBetStrategy.Bet
+					fmt.Printf("[Round %d][Iteration %d] Taking down bet on point 4. Bankroll increased to $%f.\n", c.round, c.iteration, c.Bankroll)
+				}
+			}
+
+			if c.getDiceValue() == c.PointValue {
 				// win
 
 				fmt.Printf("[Round %d][Iteration %d] Rolled point value (win!). End of round.\n", c.round, c.iteration)
 				c.isPuckOn = false
 				c.PointValue = 0
 				c.round += 1
-			} else {
-				// TBA
-
+				c.placeBetHistory = &[]int{}
 			}
 		}
 
 		c.iteration += 1
 	}
+}
+
+func (c *Craps) isBettingStrategyExists(bettingStrategy int) *BettingStrategy {
+	if *c.BettingStrategies != nil {
+		for _, strategy := range *c.BettingStrategies {
+			if strategy.StrategyType == bettingStrategy {
+				return &strategy
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Craps) addPlaceBetHistory(value int) {
+	if c.placeBetHistory == nil {
+		c.placeBetHistory = &[]int{}
+	}
+
+	*c.placeBetHistory = append(*c.placeBetHistory, value)
+}
+
+func (c *Craps) calculateLosses() {
+
 }
