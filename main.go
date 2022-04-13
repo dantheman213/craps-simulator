@@ -32,6 +32,7 @@ type Craps struct {
 	PointValue        int
 	BettingStrategies *[]BettingStrategy
 	placeBetHistory   *[]int
+	board             *Board
 }
 
 const (
@@ -53,10 +54,24 @@ type BettingStrategy struct {
 	TakeDownBetAfterWin bool
 }
 
+type Board struct {
+	PlaceBet4      int
+	PlaceBet5      int
+	PlaceBet6      int
+	PlaceBet8      int
+	PlaceBet9      int
+	PlaceBet10     int
+	PassLineBet    int
+	DontPassBarBet int
+	FieldBet       int
+	ComeBet        int
+}
+
 func NewCrapsSim(startBalance float64, maxIterations int) *Craps {
 	return &Craps{
 		Bankroll:     startBalance,
 		MaxIteration: maxIterations,
+		board:        &Board{},
 	}
 }
 
@@ -114,7 +129,7 @@ func (c *Craps) Start() {
 				// seven-out (lose)
 				fmt.Printf("[Round %d][Iteration %d] Rolled seven-out (loss). End of round.\n", c.round, c.iteration)
 
-				c.calculateLosses()
+				c.calculateSevenOutLoss()
 
 				c.isPuckOn = false
 				c.round += 1
@@ -171,6 +186,6 @@ func (c *Craps) addPlaceBetHistory(value int) {
 	*c.placeBetHistory = append(*c.placeBetHistory, value)
 }
 
-func (c *Craps) calculateLosses() {
+func (c *Craps) calculateSevenOutLoss() {
 
 }
