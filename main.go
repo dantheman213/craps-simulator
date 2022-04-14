@@ -23,7 +23,7 @@ func generateRandomNumber(min, max int) int {
 
 type Craps struct {
 	isPuckOn          bool
-	Bankroll          float64
+	Bankroll          int
 	iteration         int
 	MaxIteration      int
 	round             int
@@ -50,7 +50,7 @@ const (
 
 type BettingStrategy struct {
 	StrategyType        int
-	Bet                 float64
+	Bet                 int
 	TakeDownBetAfterWin bool
 }
 
@@ -67,7 +67,7 @@ type Board struct {
 	ComeBet        int
 }
 
-func NewCrapsSim(startBalance float64, maxIterations int) *Craps {
+func NewCrapsSim(startBalance int, maxIterations int) *Craps {
 	return &Craps{
 		Bankroll:     startBalance,
 		MaxIteration: maxIterations,
@@ -88,7 +88,7 @@ func (c *Craps) getDiceValue() int {
 	return c.Die1 + c.Die2
 }
 
-func (c *Craps) SetBettingStrategy(StrategyType int, bet float64) {
+func (c *Craps) SetBettingStrategy(StrategyType int, bet int) {
 	strat := BettingStrategy{
 		StrategyType: StrategyType,
 		Bet:          bet,
@@ -104,30 +104,36 @@ func (c *Craps) Start() {
 	c.round = 1
 	c.iteration = 1
 
-	fmt.Printf("Initial bankroll is set to $%f\n", c.Bankroll)
+	fmt.Printf("Initial bankroll is set to $%d\n", c.Bankroll)
 	for c.Bankroll > 0 && c.iteration <= c.MaxIteration {
 		c.rollDice()
-		fmt.Printf("[Round %d][Iteration %d] Dice rolled %d\n", c.round, c.iteration, c.getDiceValue())
+		c.printRoundIteration()
+		fmt.Printf("Dice rolled %d\n", c.getDiceValue())
 
 		if !c.isPuckOn {
 			if c.getDiceValue() == 2 || c.getDiceValue() == 3 || c.getDiceValue() == 12 {
 				// craps
-				fmt.Printf("[Round %d][Iteration %d] Rolled craps. End of round.\n", c.round, c.iteration)
+				c.printRoundIteration()
+				fmt.Printf("Rolled craps. End of round.\n")
 				c.round += 1
 			} else if c.getDiceValue() == 7 || c.getDiceValue() == 11 {
 				// win
-				fmt.Printf("[Round %d][Iteration %d] Win Come Out roll. End of round.\n", c.round, c.iteration)
+				c.printRoundIteration()
+				fmt.Printf("Win Come Out roll. End of round.\n")
 				c.round += 1
 			} else {
 				// point is set
 				c.PointValue = c.getDiceValue()
 				c.isPuckOn = true
-				fmt.Printf("[Round %d][Iteration %d] Point is set at %d\n", c.round, c.iteration, c.getDiceValue())
+				c.setBoard()
+				c.printRoundIteration()
+				fmt.Printf("Point is set at %d\n", c.getDiceValue())
 			}
 		} else if c.isPuckOn {
 			if c.getDiceValue() == 7 {
 				// seven-out (lose)
-				fmt.Printf("[Round %d][Iteration %d] Rolled seven-out (loss). End of round.\n", c.round, c.iteration)
+				c.printRoundIteration()
+				fmt.Printf("Rolled seven-out (loss). End of round.\n")
 
 				c.calculateSevenOutLoss()
 
@@ -143,18 +149,22 @@ func (c *Craps) Start() {
 				payoutMultiplier := currentBetStrategy.Bet / 5
 				payout := (payoutMultiplier * 4) + currentBetStrategy.Bet
 				c.Bankroll += payout
-				fmt.Printf("[Round %d][Iteration %d] Won on point 4. Payout is %f. Bankroll increased to $%f.\n", c.round, c.iteration, payout, c.Bankroll)
+				c.printRoundIteration()
+				fmt.Printf("Won on point 4. Payout is %d. Bankroll increased to $%d.\n", payout, c.Bankroll)
 
 				if currentBetStrategy.TakeDownBetAfterWin {
 					c.Bankroll += currentBetStrategy.Bet
-					fmt.Printf("[Round %d][Iteration %d] Taking down bet on point 4. Bankroll increased to $%f.\n", c.round, c.iteration, c.Bankroll)
+					c.board.PlaceBet4 = 0
+					c.printRoundIteration()
+					fmt.Printf("Taking down bet on point 4. Bankroll increased to $%d.\n", c.Bankroll)
 				}
 			}
 
 			if c.getDiceValue() == c.PointValue {
 				// win
 
-				fmt.Printf("[Round %d][Iteration %d] Rolled point value (win!). End of round.\n", c.round, c.iteration)
+				c.printRoundIteration()
+				fmt.Printf("Rolled point value (win!). End of round.\n")
 				c.isPuckOn = false
 				c.PointValue = 0
 				c.round += 1
@@ -164,6 +174,8 @@ func (c *Craps) Start() {
 
 		c.iteration += 1
 	}
+
+	fmt.Printf("Simulation is complete. Bankroll is $%d\n", c.Bankroll)
 }
 
 func (c *Craps) isBettingStrategyExists(bettingStrategy int) *BettingStrategy {
@@ -186,6 +198,38 @@ func (c *Craps) addPlaceBetHistory(value int) {
 	*c.placeBetHistory = append(*c.placeBetHistory, value)
 }
 
+func (c *Craps) setBoard() {
+	for _, strategy := range *c.BettingStrategies {
+		c.Bankroll -= strategy.Bet
+
+		c.printRoundIteration()
+		switch strategy.StrategyType {
+		case BettingStrategyPlaceBet4:
+			fmt.Printf("Added $%d to place bet 4.\n", strategy.Bet)
+			c.board.PlaceBet4 = strategy.Bet
+		case BettingStrategyPlaceBet5:
+			fmt.Printf("Added $%d to place bet 5.\n", strategy.Bet)
+			c.board.PlaceBet5 = strategy.Bet
+		case BettingStrategyPlaceBet6:
+			fmt.Printf("Added $%d to place bet 6.\n", strategy.Bet)
+			c.board.PlaceBet6 = strategy.Bet
+		case BettingStrategyPlaceBet8:
+			fmt.Printf("Added $%d to place bet 8.\n", strategy.Bet)
+			c.board.PlaceBet8 = strategy.Bet
+		case BettingStrategyPlaceBet9:
+			fmt.Printf("Added $%d to place bet 9.\n", strategy.Bet)
+			c.board.PlaceBet9 = strategy.Bet
+		case BettingStrategyPlaceBet10:
+			fmt.Printf("Added $%d to place bet 10.\n", strategy.Bet)
+			c.board.PlaceBet10 = strategy.Bet
+		}
+	}
+}
+
 func (c *Craps) calculateSevenOutLoss() {
 
+}
+
+func (c *Craps) printRoundIteration() {
+	fmt.Printf("[Round %d][Iteration %d] ", c.round, c.iteration)
 }
