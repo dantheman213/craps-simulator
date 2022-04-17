@@ -31,7 +31,6 @@ type Craps struct {
 	Die2              int
 	PointValue        int
 	BettingStrategies *[]BettingStrategy
-	placeBetHistory   *[]int
 	board             *Board
 }
 
@@ -62,6 +61,7 @@ type Board struct {
 	PlaceBet9      int
 	PlaceBet10     int
 	PassLineBet    int
+	PassLineOdds   int
 	DontPassBarBet int
 	FieldBet       int
 	ComeBet        int
@@ -105,6 +105,8 @@ func (c *Craps) Start() {
 	c.iteration = 1
 
 	fmt.Printf("Initial bankroll is set to $%d\n", c.Bankroll)
+	c.setPassLineBet()
+
 	for c.Bankroll > 0 && c.iteration <= c.MaxIteration {
 		c.rollDice()
 		c.printRoundIteration()
@@ -115,12 +117,19 @@ func (c *Craps) Start() {
 				// craps
 				c.printRoundIteration()
 				fmt.Printf("Rolled craps. End of round.\n")
+				c.board.PassLineBet = 0
 				c.round += 1
+				c.setPassLineBet()
+				c.printBankRoll()
 			} else if c.getDiceValue() == 7 || c.getDiceValue() == 11 {
 				// win
 				c.printRoundIteration()
 				fmt.Printf("Win Come Out roll. End of round.\n")
+				c.Bankroll += c.board.PassLineBet // keep original bet on field and return winnings to bank roll
+				c.printBankRoll()
 				c.round += 1
+				c.setPassLineBet()
+				c.printBankRoll()
 			} else {
 				// point is set
 				c.PointValue = c.getDiceValue()
@@ -134,12 +143,9 @@ func (c *Craps) Start() {
 				// seven-out (lose)
 				c.printRoundIteration()
 				fmt.Printf("Rolled seven-out (loss). End of round.\n")
-
 				c.calculateSevenOutLoss()
-
 				c.isPuckOn = false
 				c.round += 1
-				c.placeBetHistory = &[]int{}
 			}
 
 			var currentBetStrategy *BettingStrategy = nil
@@ -150,7 +156,7 @@ func (c *Craps) Start() {
 				payout := (payoutMultiplier * 4) + currentBetStrategy.Bet
 				c.Bankroll += payout
 				c.printRoundIteration()
-				fmt.Printf("Won on point 4. Payout is %d. Bankroll increased to $%d.\n", payout, c.Bankroll)
+				fmt.Printf("Won on point 4. Payout is $%d. Bankroll increased to $%d.\n", payout, c.Bankroll)
 
 				if currentBetStrategy.TakeDownBetAfterWin {
 					c.Bankroll += currentBetStrategy.Bet
@@ -160,15 +166,94 @@ func (c *Craps) Start() {
 				}
 			}
 
+			currentBetStrategy = c.isBettingStrategyExists(BettingStrategyPlaceBet5)
+			if c.getDiceValue() == 5 && currentBetStrategy != nil {
+				payoutMultiplier := currentBetStrategy.Bet / 5
+				payout := (payoutMultiplier * 2) + currentBetStrategy.Bet
+				c.Bankroll += payout
+				c.printRoundIteration()
+				fmt.Printf("Won on point 5. Payout is $%d. Bankroll increased to $%d.\n", payout, c.Bankroll)
+
+				if currentBetStrategy.TakeDownBetAfterWin {
+					c.Bankroll += currentBetStrategy.Bet
+					c.board.PlaceBet5 = 0
+					c.printRoundIteration()
+					fmt.Printf("Taking down bet on point 5. Bankroll increased to $%d.\n", c.Bankroll)
+				}
+			}
+
+			currentBetStrategy = c.isBettingStrategyExists(BettingStrategyPlaceBet6)
+			if c.getDiceValue() == 6 && currentBetStrategy != nil {
+				payoutMultiplier := currentBetStrategy.Bet / 6
+				payout := (payoutMultiplier * 1) + currentBetStrategy.Bet
+				c.Bankroll += payout
+				c.printRoundIteration()
+				fmt.Printf("Won on point 6. Payout is $%d. Bankroll increased to $%d.\n", payout, c.Bankroll)
+
+				if currentBetStrategy.TakeDownBetAfterWin {
+					c.Bankroll += currentBetStrategy.Bet
+					c.board.PlaceBet6 = 0
+					c.printRoundIteration()
+					fmt.Printf("Taking down bet on point 6. Bankroll increased to $%d.\n", c.Bankroll)
+				}
+			}
+
+			currentBetStrategy = c.isBettingStrategyExists(BettingStrategyPlaceBet8)
+			if c.getDiceValue() == 8 && currentBetStrategy != nil {
+				payoutMultiplier := currentBetStrategy.Bet / 6
+				payout := (payoutMultiplier * 1) + currentBetStrategy.Bet
+				c.Bankroll += payout
+				c.printRoundIteration()
+				fmt.Printf("Won on point 8. Payout is $%d. Bankroll increased to $%d.\n", payout, c.Bankroll)
+
+				if currentBetStrategy.TakeDownBetAfterWin {
+					c.Bankroll += currentBetStrategy.Bet
+					c.board.PlaceBet8 = 0
+					c.printRoundIteration()
+					fmt.Printf("Taking down bet on point 8. Bankroll increased to $%d.\n", c.Bankroll)
+				}
+			}
+
+			currentBetStrategy = c.isBettingStrategyExists(BettingStrategyPlaceBet9)
+			if c.getDiceValue() == 9 && currentBetStrategy != nil {
+				payoutMultiplier := currentBetStrategy.Bet / 5
+				payout := (payoutMultiplier * 2) + currentBetStrategy.Bet
+				c.Bankroll += payout
+				c.printRoundIteration()
+				fmt.Printf("Won on point 9. Payout is $%d. Bankroll increased to $%d.\n", payout, c.Bankroll)
+
+				if currentBetStrategy.TakeDownBetAfterWin {
+					c.Bankroll += currentBetStrategy.Bet
+					c.board.PlaceBet9 = 0
+					c.printRoundIteration()
+					fmt.Printf("Taking down bet on point 9. Bankroll increased to $%d.\n", c.Bankroll)
+				}
+			}
+
+			currentBetStrategy = c.isBettingStrategyExists(BettingStrategyPlaceBet10)
+			if c.getDiceValue() == 10 && currentBetStrategy != nil {
+				payoutMultiplier := currentBetStrategy.Bet / 5
+				payout := (payoutMultiplier * 4) + currentBetStrategy.Bet
+				c.Bankroll += payout
+				c.printRoundIteration()
+				fmt.Printf("Won on point 10. Payout is $%d. Bankroll increased to $%d.\n", payout, c.Bankroll)
+
+				if currentBetStrategy.TakeDownBetAfterWin {
+					c.Bankroll += currentBetStrategy.Bet
+					c.board.PlaceBet10 = 0
+					c.printRoundIteration()
+					fmt.Printf("Taking down bet on point 10. Bankroll increased to $%d.\n", c.Bankroll)
+				}
+			}
+
 			if c.getDiceValue() == c.PointValue {
 				// win
-
 				c.printRoundIteration()
 				fmt.Printf("Rolled point value (win!). End of round.\n")
+				c.calculatePassLineAndOddsPayout()
 				c.isPuckOn = false
 				c.PointValue = 0
 				c.round += 1
-				c.placeBetHistory = &[]int{}
 			}
 		}
 
@@ -190,12 +275,13 @@ func (c *Craps) isBettingStrategyExists(bettingStrategy int) *BettingStrategy {
 	return nil
 }
 
-func (c *Craps) addPlaceBetHistory(value int) {
-	if c.placeBetHistory == nil {
-		c.placeBetHistory = &[]int{}
-	}
+func (c *Craps) setPassLineBet() {
+	passLine := c.isBettingStrategyExists(BettingStrategyPassLine)
+	c.Bankroll -= passLine.Bet
+	c.board.PassLineBet = passLine.Bet
 
-	*c.placeBetHistory = append(*c.placeBetHistory, value)
+	c.printRoundIteration()
+	fmt.Printf("Added $%d to pass line bet.\n", passLine.Bet)
 }
 
 func (c *Craps) setBoard() {
@@ -222,14 +308,51 @@ func (c *Craps) setBoard() {
 		case BettingStrategyPlaceBet10:
 			fmt.Printf("Added $%d to place bet 10.\n", strategy.Bet)
 			c.board.PlaceBet10 = strategy.Bet
+		case BettingStrategyOdds:
+			fmt.Printf("Added $%d to pass line odds bet.\n", strategy.Bet)
+			c.board.PassLineOdds = strategy.Bet
 		}
+
+		c.printBankRoll()
+	}
+}
+
+func (c *Craps) calculatePassLineAndOddsPayout() {
+	passLine := c.isBettingStrategyExists(BettingStrategyPassLine)
+	if passLine != nil {
+		c.Bankroll += passLine.Bet * 2
+		c.printRoundIteration()
+		fmt.Printf("Pay out pass line. Bankroll has increased to $%d\n", c.Bankroll)
+	}
+
+	passLineOdds := c.isBettingStrategyExists(BettingStrategyOdds)
+	if passLineOdds != nil {
+		if c.getDiceValue() == 4 || c.getDiceValue() == 10 {
+			// 2 to 1 odds
+			c.Bankroll += (passLineOdds.Bet * 2) + passLineOdds.Bet
+		} else if c.getDiceValue() == 5 || c.getDiceValue() == 9 {
+			// 3 to 2 odds
+			c.Bankroll += int(float64(passLineOdds.Bet)*1.5) + passLineOdds.Bet
+		} else if c.getDiceValue() == 6 || c.getDiceValue() == 8 {
+			// 6 to 5 odds
+			c.Bankroll += int(float64(passLineOdds.Bet)*1.2) + passLineOdds.Bet
+		}
+
+		c.printRoundIteration()
+		fmt.Printf("Pay out odds. Bankroll has increased to $%d\n", c.Bankroll)
 	}
 }
 
 func (c *Craps) calculateSevenOutLoss() {
-
+	c.board = &Board{}
+	c.printBankRoll()
 }
 
 func (c *Craps) printRoundIteration() {
 	fmt.Printf("[Round %d][Iteration %d] ", c.round, c.iteration)
+}
+
+func (c *Craps) printBankRoll() {
+	c.printRoundIteration()
+	fmt.Printf("Bankroll is set to $%d\n", c.Bankroll)
 }
